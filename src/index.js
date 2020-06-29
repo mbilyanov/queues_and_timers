@@ -50,7 +50,7 @@ class Queue {
 // RequestHandler {{{1
 class RequestHandler extends Queue {
     // TODO: MaxRetries and retrying will be implemented.
-    #printing = false;
+    #isBusy = false;
     #callCounter = 0;
 
     constructor(name=null) {
@@ -62,10 +62,12 @@ class RequestHandler extends Queue {
     }
 
     async processQueue() {
-        this.#printing = true;
-        const sizeBefore = this.size;
+        this.#isBusy = true;
+        let task;
+
         const result = {
             'errors': false,
+            'message': null
         };
         const queueItem = this.dequeue();
 
@@ -74,24 +76,27 @@ class RequestHandler extends Queue {
         //const docCall = queueItem.fn;
         const docSignal = queueItem.sg;
 
-        const sizeAfter = this.size;
         try{
-            const task = await queryMockTickers(queueItem.sg);
-            console.log(`ticker data received. ${this.size}`);
+            task = await queryMockTickers(queueItem.sg);
+            console.log(`Ticker data received. [${queueItem.sg}], __QUEUE_SIZE__: ${this.size}`);
             console.log('__db__WRITE: monogodb');
         }catch(e){
-            console.log(`ticker data failed. ${this.size}`);
+            task = 'failed';
+            console.log(`Ticker data failed. [${queueItem.sg}], __QUEUE_SIZE__: ${this.size}`);
             console.log('continue ...');
             result['errors'] = true;
         }
         // Queue is consumed, we are done.
         if (this.isEmpty) {
             console.log('... done ...');
-            this.#printing = false;
-            return 'DONE!';
+            this.#isBusy = false;
+
+            // Pack the last message.
+            result['message'] = task;
+            return result;
         } else {
             console.log('... next ...');
-            await this.processQueue();
+            return await this.processQueue();
         }
     };
 
@@ -143,24 +148,51 @@ class RequestBundle extends Queue {
 }
 // }}}1
 
-//const rb = new RequestBundle();
+/* The basic bits that are working. */
 
 const asset_list = ['BTC/EUR', 'ETH/EUR', 'ZEX/EUR', 'LTC/EUR', 'XMR/EUR', 'DASH/EUR', 'EOC/EUR', 'ETC/EUR', 'XLM/EUR', 'XRP/EUR', 'BANANA/APPLE', 'ABC/XYZ', 'FGH/TRY'];
 
-console.log('[1.start] This task relies on the response being received ... (working)');
+const myPrinter_5m = new RequestHandler('5m');
+
+try {
+asset_list
+    .forEach((n) => {
+        myPrinter_5m.submit(n);
+    });
+}catch(e){
+    console.log('CRITICAL_FAILUER: Submission failed.');
+}
+
+myPrinter_5m.print();
 
 (async () => {
-    // Approach (1)
-    sleep(3000).then((message)=>{
-        console.log(`[1.end] result: ${message}`);
-        console.log('[1.end] Done.');
-    });
-    // Approach (2)
-    //let response = await sleep(3000)
-    // let response = await sleep(30000);
-    // console.log(`[1]result: ${response}`);
-    // console.log('[1] Done.');
+    try{
+        let response = await myPrinter_5m.processQueue();
+        console.log(JSON.stringify(response));
+    }catch(e){
+        console.log(`xxx ${e} xxx`);
+    }
 })();
+
+/* Some old experiements */
+
+//const rb = new RequestBundle();
+
+/*
+console.log('[1.start] This task relies on the response being received ... (working)');
+
+// (async () => {
+//     // Approach (1)
+//     sleep(3000).then((message)=>{
+//         console.log(`[1.end] result: ${message}`);
+//         console.log('[1.end] Done.');
+//     });
+//     // Approach (2)
+//     //let response = await sleep(3000)
+//     // let response = await sleep(30000);
+//     // console.log(`[1]result: ${response}`);
+//     // console.log('[1] Done.');
+// })();
 
 console.log('[2.start] This task relies on the response being received ... (working)');
 
@@ -171,5 +203,6 @@ sleep(7000).then((message)=>{
 
 console.log('[3.start] Some other task running.');
 console.log('[3.end] Done.');
+*/
 
 // vim: fdm=marker ts=4

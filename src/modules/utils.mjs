@@ -155,7 +155,7 @@ export const queryMockTickers = (symbol) => {
                 } catch (error) {
                     reject(error);
                 }
-            }, randomNumber(2000, 8000));
+            }, randomNumber(2000, 6000));
         } catch(error) {
             reject(error);
         }
