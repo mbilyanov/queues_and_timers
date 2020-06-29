@@ -17,12 +17,12 @@ The idea here is the following:
 * Every 1d (24h), the `5m` container is populated, together with the `15m`, followed by the `1h` container, followed by the 4h container and finally the `24h` container is populated. Once again, once the population process is complete, all 5 queues are consumed. (This task keep running and every 24 hours the process is repeated.)
 
 # The Problem
-For now the interval handling is not an issue. The what is the initial problem?
+For now the interval handling is not an issue. Then what is the initial problem?
 
-* The initial problem to be solved is to get 5 different async events to selectively populate containers and within the queue bundle and trigger the consumption of all queues.
+* The initial problem to be solved is to get 5 different async events to selectively populate the queues within the bundle and trigger the consumption of all the populated queues.
 
 So for example, in the simplest case only the `5m` queue will be filled and
-consumed.
+consumed every 5 minutes.
 
 # The Queue Structure
 ```javascript
@@ -42,6 +42,14 @@ other 4 handlers empty, there might be a saturation level required to indicate
 that the `RequestNetwork` is ready. Every process adding to the network will
 check if the saturation level is satisfied, once that is done, the whole
 network will be consumed.
+
+For example, the saturation level that needs to be satisfied to trigger the consumption of the
+`RequestNetwork` every 5 minutes will be 20.
+
+Similarly, the saturation level needed to be satisfied to trigger the consumption of the
+`RequestNetwork` every 15 minutes would be 40 (20 tasks for the `5m`
+`RequestHandler` and 20 tasks for the `15m` `RequestHandler` and so on and so
+on.
 
 # Run
 To run, use the following.
