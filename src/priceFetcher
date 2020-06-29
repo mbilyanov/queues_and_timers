@@ -1,0 +1,31 @@
+class PriceFetcher {
+  // this will fetch as many items as posible and as soon as the server rejects it it starts to wait
+  async fetchPrices(list, prices = {}) {
+    if (list.length) {
+      let item = list.shift();
+      let price = null;
+      
+      try {
+        price = await fetch(item); // better handle response here for fetch
+      } catch(e) {
+        // the server rejected it
+      }
+      
+      if(price !== null) { // price will be null if failed
+        prices[item] = price; // save price for the item
+        return this.fetchPrices(list, prices); // continue for the next item
+      } else { // if failed
+        list.shift(item); // put the item back in the list
+        return new Promise((res) => {
+          setTimeout(() => {
+            res(this.fetchPrices(list, prices));
+          }, 5000); // try again after 5secs - change as see fit
+        })
+      }
+    }
+
+    return prices; // return all collected prices in the end
+  }
+}
+
+export default new PriceFetcher();
