@@ -68,7 +68,7 @@ class RequestHandler extends Queue {
 
         this.name = name == null ? 'printer_' + Math.floor(Math.random() * 10000) : 'printer_' + name;
         this.id = Math.floor(Math.random() * 10000);
-        console.log(`created printer with NAME: ${this.name} and ID: ${this.id}`);
+        console.log(`INFO: Created a RequestHandler with NAME: ${this.name} and ID: ${this.id}`);
     }
 
     async processQueue() {
@@ -107,25 +107,33 @@ class RequestHandler extends Queue {
 
         try{
             // Actual ticker fetcher will support different time frames.
+            console.log(`Requesting [${asset}:${timeframe}] ...`);
             task = await queryMockTickers(asset);
-            //console.log(`SUCCESS: Ticker data received. [${asset}], [${timeframe}], __QUEUE_SIZE__: ${this.size}`);
-            //console.log('__db__WRITE: monogodb');
+            console.log(`SUCCESS: Ticker data received for asset [${asset}], with a timeframe of [${timeframe}]. <QUEUE_SIZE: ${this.size}>`);
+            // console.log('__db__WRITE: monogodb');
             //console.log(JSON.stringify(task));
         }catch(e){
             task = null;
-            //console.log(`FAIL: Ticker data failed. [${asset}], [${timeframe}], __QUEUE_SIZE__: ${this.size}`);
 
             if(retryCounter != 0){
-                console.log(`retry ... for [${asset}] ... <${retryCounter}>`);
+                console.log(`FAIL: Ticker data request for [${asset}], with a timeframe of [${timeframe}], has failed! <QUEUE_SIZE: ${this.size}>`);
+                const prevRetryCounter = retryCounter;
                 retryCounter -= 1;
                 this.#fields[timeframe][asset]['retry_counter'] = retryCounter;
 
                 // The next value of the retry counter will be pulled from the
                 // 'fields' container.
-                console.log(`updated _retryCounter ... <${retryCounter}>`);
+                console.log(`The following task [${asset}:${timeframe}] will be retried later. <RETRY_COUNTER: (${prevRetryCounter})->(${retryCounter})>`);
+
+                // Invoke the submitter, the failed task will be added to the
+                // end of the queue.
                 this.submit(asset, timeframe, specs);
+
+                // DEBUG: This is to check if the failed task is re-added to
+                // the queue so that it can be retried.
+                this.print()
             }else{
-                console.log(`Retry limit reached after ${specs.maxRetries} retries. Aborting any pending requests for [${asset}, ${timeframe}].`);
+                console.log(`Retry limit reached for task [${asset}:${timeframe}] after ${specs.maxRetries} retries. Aborting any pending requests.`);
                 this.#consumed.requests[timeframe]['failed_tasks'].push(asset);
 
                 if(!this.#consumed.states.hasErrors){
@@ -135,12 +143,14 @@ class RequestHandler extends Queue {
         }
         // Queue is consumed, we are done.
         if (this.isEmpty) {
-            console.log('... done ...');
+            const suffix = this.#consumed.states.hasErrors ? 'error(s)' : 'no error(s)';
+            console.log(`Queue [${this.name}] is completed with ${suffix}.`);
             this.#isBusy = false;
 
             return this.#consumed;
+        // There are remaining queue items, moving on to the next task.
         } else {
-            console.log('... next ...');
+            console.log('> Picking up NEXT task.');
             return await this.processQueue();
         }
     };
@@ -151,78 +161,28 @@ class RequestHandler extends Queue {
         } else {
             let current_size;
             current_size = this.enqueue({'asset': asset, 'timeframe': timeframe, 'specs': specs});
-            // console.log(`__TASK__: ${asset}, ${timeframe}, ${specs}, queue submission executed, __QUEUE_SIZE__: ${current_size}`);
+            console.log(`INFO: Task [${asset}:${timeframe}] has been submitted to queue [${this.name}], with the following specs: ${JSON.stringify(specs)} <QUEUE_SIZE: ${current_size}>`);
         }
     };
 }
 // }}}1
 
-// RequestBundle {{{1
-//
-// RequestBundle.submit('5m', '20');
-// RequestBundle.submit('15m', '40');
-// RequestBundle.submit('1h', '60');
-// RequestBundle.submit('4h', '80');
-// RequestBundle.submit('1d', '100');
-//
-// every request will check the current level and elevate that if it is lower
-// than the target. For example, when the '5m' task accesses the contaoiner, it
-// will set the level to 20, later, when the '15m' task modifies the container,
-// it will check and find 20 as the current level, this will be elevated to 40,
-// so on and so on.
-//
-// The last taks that goes in there, will trigger the consumption of all queue
-// containers.
-//
-// We need to make sure that the invervals run sequentially, 5m, 15m, 1h etc.
-// or we will have to handle that in the container.
-//
-// We should be able to the intervals run sequentially.
-//
-// //
-class RequestBundle extends Queue {
-    #printers = [
-        new RequestHandler('5m'),
-        new RequestHandler('15m'),
-        new RequestHandler('1h'),
-        new RequestHandler('4h'),
-        new RequestHandler('1d')
-    ];
-
-    submit(doc) {
-        return new Promise((res) => {
-            const freePrinter = this.#printers.reduce((acc, p) => {
-                if (p.size < acc.size) {
-                    acc = p;
-                }
-
-                return acc;
-            }, this.#printers[0]);
-
-            if (freePrinter.isFull) {
-                this.enqueue(() => this.print(doc).then((id) => res(id)));
-            } else {
-                freePrinter.print(doc).then(() => {
-                    res(freePrinter.id);
-                    if (this.size) {
-                        const nextDoc = this.dequeue();
-                        nextDoc();
-                    }
-                });
-            }
-        });
-    }
-}
-// }}}1
-
 /* The basic bits that are working. */
 
-//const asset_list = ['BTC/EUR', 'ETH/EUR', 'ZEC/EUR', 'LTC/EUR', 'XMR/EUR', 'DASH/EUR', 'EOS/EUR', 'ETC/EUR', 'XLM/EUR', 'XRP/EUR', 'BTC/USD', 'ETH/USD', 'ZEC/USD', 'LTC/USD', 'XMR/USD', 'DASH/USD', 'EOS/USD', 'ETC/USD', 'XLM/USD', 'XRP/USD'];
-const asset_list = ['BTS/EUR', 'ETH/EUR'];
+// const asset_list = ['BTC/EUR', 'ETH/EUR', 'ZEC/EUR', 'LTC/EUR', 'XMR/EUR', 'DASH/EUR', 'EOS/EUR', 'ETC/EUR', 'XLM/EUR', 'XRP/EUR', 'BTC/USD', 'ETH/USD', 'ZEC/USD', 'LTC/USD', 'XMR/USD', 'DASH/USD', 'EOS/USD', 'ETC/USD', 'XLM/USD', 'XRP/USD'];
+
+// Shorter version of the asset list. This is for test purposes.
+// const asset_list = ['BTS/EUR', 'ETH/EUR'];
+
+// An asset list but with a deliberate typo in one of the asset names, so that
+// we can trigger an error/retry cycle.
+const asset_list = ['BTC/EUR', 'ETH/EUR', 'ZEX/EUR', 'LTC/EUR'];
 
 const assetRequester = new RequestHandler('asset_requester');
 
 // Initial submissions.
+// This is our first group, all 20 assets submitted for a 5 minute time frame
+// lookup.
 try {
     console.log('Submittin to group [5m]');
     asset_list
@@ -233,9 +193,9 @@ try {
     console.log('CRITICAL_FAILURE: Submission failed for group [5m].');
 }
 
-assetRequester.print();
-
 // ASYNC task consumer starts working immediately.
+// The submission to group '5m' is immediate and we start the queue consumption
+// immediately with that group.
 (async () => {
     try{
         console.log('__LOCK_INTERVAL__');
@@ -248,7 +208,10 @@ assetRequester.print();
     };
 })();
 
-// Test async sequential submission (15m).
+// Test async sequential submission (for group: 15m).
+// After a short delay, we keep submitting to that queue, but this time the
+// group signature for the tasks is '15m'. Another 20 tasks get added to
+// the queue here.
 sleep(1000)
     .then((message) => {
         console.log('Submittin to group [15m]');
@@ -260,9 +223,12 @@ sleep(1000)
     .catch((err) => {
         console.log(`CRITICAL_FAILURE: Submission failed for group [15M].\n${err}`);
     })
-    .finally(() => { assetRequester.print() });
+    .finally(/*() => { assetRequester.print()}*/);
 
-// Test async sequential submission (1h).
+// Test async sequential submission (for group 1h).
+// After a short delay, we keep submitting to that queue, but this time the
+// group signature for the tasks is '1h'. Another 20 tasks get added to
+// the queue here.
 sleep(1000)
     .then((message) => {
         console.log('Submittin to group [1h]');
@@ -274,9 +240,12 @@ sleep(1000)
     .catch((err) => {
         console.log(`CRITICAL_FAILURE: Submission failed for group [1h].\n${err}`);
     })
-    .finally(() => { assetRequester.print() });
+    .finally(/*() => { assetRequester.print()}*/);
 
 // Test async sequential submission (4h).
+// After a short delay, we keep submitting to that queue, but this time the
+// group signature for the tasks is '4h'. Another 20 tasks get added to
+// the queue here.
 sleep(1000)
     .then((message) => {
         console.log('Submittin to group [4h]');
@@ -288,9 +257,12 @@ sleep(1000)
     .catch((err) => {
         console.log(`CRITICAL_FAILURE: Submission failed for group [4h].\n${err}`);
     })
-    .finally(() => { assetRequester.print() });
+    .finally(/*() => { assetRequester.print()}*/);
 
 // Test async sequential submission (1d).
+// After a short delay, we keep submitting to that queue, but this time the
+// group signature for the tasks is '1d'. Another 20 tasks get added to
+// the queue here.
 sleep(1000)
     .then((message) => {
         console.log('Submittin to group [1d]');
@@ -302,37 +274,6 @@ sleep(1000)
     .catch((err) => {
         console.log(`CRITICAL_FAILURE: Submission failed for group [1d].\n${err}`);
     })
-    .finally(() => { assetRequester.print() });
-
-/* Some old experiements */
-
-//const rb = new RequestBundle();
-
-/*
-console.log('[1.start] This task relies on the response being received ... (working)');
-
-// (async () => {
-//     // Approach (1)
-//     sleep(3000).then((message)=>{
-//         console.log(`[1.end] result: ${message}`);
-//         console.log('[1.end] Done.');
-//     });
-//     // Approach (2)
-//     //let response = await sleep(3000)
-//     // let response = await sleep(30000);
-//     // console.log(`[1]result: ${response}`);
-//     // console.log('[1] Done.');
-// })();
-
-console.log('[2.start] This task relies on the response being received ... (working)');
-
-sleep(7000).then((message)=>{
-    console.log(`[2.end] result: ${message}`);
-    console.log('[2.end] Done.');
-});
-
-console.log('[3.start] Some other task running.');
-console.log('[3.end] Done.');
-*/
+    .finally(/*() => { assetRequester.print()}*/);
 
 // vim: fdm=marker ts=4
