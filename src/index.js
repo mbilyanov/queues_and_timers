@@ -66,7 +66,7 @@ class RequestHandler extends Queue {
     constructor(name=null) {
         super(100);
 
-        this.name = name == null ? 'printer_' + Math.floor(Math.random() * 10000) : 'printer_' + name;
+        this.name = name == null ? 'requester_' + Math.floor(Math.random() * 10000) : name;
         this.id = Math.floor(Math.random() * 10000);
         console.log(`INFO: Created a RequestHandler with NAME: ${this.name} and ID: ${this.id}`);
     }
