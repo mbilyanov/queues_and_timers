@@ -52,7 +52,7 @@ Each queue was to hold 20 jobs. Actually, there are no job limits in our case, s
 
 There is one fact that we should not miss though, every day, at (00:00+UTC:00) there will be a bottleneck as all of the five tasks will be queued and consumed. That would be 100 tasks in total, going into the queue. But that is not something that holds high priority at this stage.
 
-# The Solutions
+# The Solution
 Eventually, the solution to the queueing was far more simpler than the one proposed above.
 
 With some extra help (thanks to @ECorreia45) we decided to implemented a single queue and the handling of different tasks was achieved through properties attached to the actual task object. Any failed tasks simply got pushed back to the end of the queue and processed later.
