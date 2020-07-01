@@ -134,7 +134,7 @@ const mockTickers = {
 // @public queryMockTickers(symbol) {{{1
 export const queryMockTickers = (symbol) => {
     let _symbol = symbol.replace('/', '_');
-    console.log('__CALLED__');
+    console.log(`\t... request for [${symbol}] received.`);
     // Promisify the request.
     return new Promise((resolve, reject) => {
         try {
@@ -144,7 +144,7 @@ export const queryMockTickers = (symbol) => {
                 try {
                     result = mockTickers[_symbol];
                     if(result==undefined){
-                        let message = `Ticker [${_symbol}] is NOT found.`;
+                        let message = `ERROR: Ticker [${_symbol}] is NOT found.`;
                         let error = {};
                         error['exception'] = new Error(message, 'TickerNotFound');
                         error['symbol'] = _symbol;
@@ -167,7 +167,7 @@ export const queryMockTickers = (symbol) => {
 export const sleep = (ms) => {
     return new Promise (function(resolve, reject) {
         setTimeout(function(){
-            console.log('[DELAYED_PROCESS] completed.');
+            // console.log('[DELAYED_PROCESS] completed.');
             resolve('data_stream');
         }, ms);
     });
