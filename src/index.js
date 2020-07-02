@@ -123,7 +123,7 @@ class RequestHandler extends Queue {
 
                 // The next value of the retry counter will be pulled from the
                 // 'fields' container.
-                console.log(`The following task [${asset}:${timeframe}] will be retried later. <RETRY_COUNTER: (${prevRetryCounter})->(${retryCounter})>`);
+                console.log(`The following task [${asset}:${timeframe}] will be retried later. <RETRY_COUNTER: (${prevRetryCounter})➙(${retryCounter})>`);
 
                 // Invoke the submitter, the failed task will be added to the
                 // end of the queue.
@@ -176,7 +176,7 @@ class RequestHandler extends Queue {
 
 // An asset list but with a deliberate typo in one of the asset names, so that
 // we can trigger an error/retry cycle.
-const asset_list = ['BTC/EUR', 'ETH/EUR', 'ZEX/EUR', 'LTC/EUR'];
+const asset_list = ['BTC/EUR', 'ETH/EUR', 'ZEX/EUR'];
 
 const assetRequester = new RequestHandler('asset_requester');
 
