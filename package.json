@@ -22,7 +22,7 @@
     "homepage": "https://github.com/mbilyanov/queues_and_timers",
     "dependencies": {
         "babel-node": "0.0.1-security",
-        "npm": "^6.14.5"
+        "npm": "^6.14.6"
     },
     "devDependencies": {
         "@babel/cli": "^7.10.3",
